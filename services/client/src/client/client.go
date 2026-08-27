@@ -4,6 +4,10 @@ import (
 	"net"
 	"time"
 
+	"bufio"
+	"fmt"
+	"os"
+
 	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/logger"
 	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/safe_socket"
 )
@@ -19,6 +23,8 @@ type ClientConfig struct {
 	ServerHost string
 	ServerPort string
 	AgencyId   string
+	InputFile  string
+	OutputFile string
 }
 
 type Client struct {
@@ -62,31 +68,67 @@ func (client *Client) Run() error {
 	const mainAction = "test-echo-server"
 	defer client.conn.Close()
 
-	for messageId := range ECHO_CLIENT_MESSAGE_AMOUNT {
-		messageArgs := []any{"agency-id", client.config.AgencyId, "message-id", messageId}
-		logger.Info(mainAction, logger.InProgress, messageArgs...)
+	fileInput, err := os.OpenFile(client.config.InputFile, os.O_RDONLY, 0644)
+	if err != nil {
+		logger.Error("open-file", logger.Fail, "file", client.config.InputFile)
+		return err
+	}
+	defer fileInput.Close()
 
-		clientMessage := client.config.AgencyId
+	fileOutput, err := os.OpenFile(client.config.OutputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		logger.Error("open-file", logger.Fail, "file", client.config.OutputFile)
+		return err
+	}
+	defer fileOutput.Close()
 
-		if err := safe_socket.SendAll(client.conn, []byte(clientMessage)); err != nil {
-			logger.Error("send-message", logger.Fail, messageArgs...)
+	scanner := bufio.NewScanner(fileInput)
+
+	for scanner.Scan() {
+		lineBytes := scanner.Bytes()
+		if err := safe_socket.SendAll(client.conn, lineBytes); err != nil {
+			logger.Error("send-message", logger.Fail)
 			return err
 		}
 
 		responseBuffer, err := safe_socket.RecvAll(client.conn, ECHO_CLIENT_BUFFER_SIZE)
 		if err != nil {
-			logger.Error("recv-response", logger.Fail, messageArgs...)
+			logger.Error("recv-response", logger.Fail)
 			return err
 		}
 
-		if string(responseBuffer) == clientMessage {
-			logger.Error("check-response", logger.Fail, messageArgs...)
+		if len(responseBuffer) != len(lineBytes) {
+			fileOutput.Write(lineBytes)
+			fileOutput.Write([]byte{'\n'})
+			fmt.Fprintf(fileOutput, "%d", len(lineBytes))
+			fileOutput.Write([]byte{'\n'})
+
+			fileOutput.Write(responseBuffer)
+			fileOutput.Write([]byte{'\n'})
+			fmt.Fprintf(fileOutput, "%d", len(responseBuffer))
+
+			logger.Error("different lenghts between request-response", logger.LogResult(responseBuffer), logger.LogResult(lineBytes), logger.Fail)
+			return fmt.Errorf("unexpected response, len of request must be equal to the response")
+		}
+
+		line := append(responseBuffer, '\n')
+		n_bytes, err := fileOutput.Write(line)
+		if err != nil {
+			logger.Error("write-file", logger.Fail)
 			return err
 		}
 
-		time.Sleep(ECHO_CLIENT_MESSAGE_DELAY_MS * time.Millisecond)
+		if n_bytes != len(line) {
+			logger.Error("different lenghts between response and bytes-writed", logger.Fail)
+			return fmt.Errorf("unexpected error while writing in output file, len of bytes writed must be equal to the response len")
+		}
 	}
-	logger.Info(mainAction, logger.Success, "agency-id", client.config.AgencyId)
 
+	if err := scanner.Err(); err != nil {
+		logger.Error("scanner-err", logger.Fail)
+		return err
+	}
+
+	logger.Info(mainAction, logger.Success, "agency-id", client.config.AgencyId)
 	return nil
 }

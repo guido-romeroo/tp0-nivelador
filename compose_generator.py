@@ -28,6 +28,11 @@ def cliente_str(id):
       - AGENCY_ID={id}
       - SERVER_HOST=server
       - SERVER_PORT=5678
+      - INPUT_FILE=/input/input-{id}.csv
+      - OUTPUT_FILE=/output/output-{id}.csv
+    volumes:
+      - ./input:/input
+      - ./output:/output
 
 """
 
