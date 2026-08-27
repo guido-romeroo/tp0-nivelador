@@ -64,20 +64,28 @@ func connectToServer(host, port string) (net.Conn, error) {
 	return conn, err
 }
 
+func openFileAndLogErrorIfAny(filePath string, flag int, permission os.FileMode) (*os.File, error) {
+	file, err := os.OpenFile(filePath, flag, permission)
+	if err != nil {
+		logger.Warn("open-file", logger.Fail, "file", filePath)
+		return nil, err
+	}
+	return file, nil
+}
+
 func (client *Client) Run() error {
 	const mainAction = "test-echo-server"
 	defer client.conn.Close()
+	logger.Info(mainAction, logger.InProgress)
 
-	fileInput, err := os.OpenFile(client.config.InputFile, os.O_RDONLY, 0644)
+	fileInput, err := openFileAndLogErrorIfAny(client.config.InputFile, os.O_RDONLY, 0644)
 	if err != nil {
-		logger.Error("open-file", logger.Fail, "file", client.config.InputFile)
 		return err
 	}
 	defer fileInput.Close()
 
-	fileOutput, err := os.OpenFile(client.config.OutputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	fileOutput, err := openFileAndLogErrorIfAny(client.config.OutputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		logger.Error("open-file", logger.Fail, "file", client.config.OutputFile)
 		return err
 	}
 	defer fileOutput.Close()
@@ -85,50 +93,50 @@ func (client *Client) Run() error {
 	scanner := bufio.NewScanner(fileInput)
 
 	for scanner.Scan() {
-		lineBytes := scanner.Bytes()
-		if err := safe_socket.SendAll(client.conn, lineBytes); err != nil {
-			logger.Error("send-message", logger.Fail)
-			return err
-		}
-
-		responseBuffer, err := safe_socket.RecvAll(client.conn, ECHO_CLIENT_BUFFER_SIZE)
-		if err != nil {
-			logger.Error("recv-response", logger.Fail)
-			return err
-		}
-
-		if len(responseBuffer) != len(lineBytes) {
-			fileOutput.Write(lineBytes)
-			fileOutput.Write([]byte{'\n'})
-			fmt.Fprintf(fileOutput, "%d", len(lineBytes))
-			fileOutput.Write([]byte{'\n'})
-
-			fileOutput.Write(responseBuffer)
-			fileOutput.Write([]byte{'\n'})
-			fmt.Fprintf(fileOutput, "%d", len(responseBuffer))
-
-			logger.Error("different lenghts between request-response", logger.LogResult(responseBuffer), logger.LogResult(lineBytes), logger.Fail)
-			return fmt.Errorf("unexpected response, len of request must be equal to the response")
-		}
-
-		line := append(responseBuffer, '\n')
-		n_bytes, err := fileOutput.Write(line)
-		if err != nil {
-			logger.Error("write-file", logger.Fail)
-			return err
-		}
-
-		if n_bytes != len(line) {
-			logger.Error("different lenghts between response and bytes-writed", logger.Fail)
-			return fmt.Errorf("unexpected error while writing in output file, len of bytes writed must be equal to the response len")
+		messageToSend := scanner.Bytes()
+		err1 := client.sendMessageFromFileInputAndWriteEchoInFileOutput(messageToSend, fileOutput)
+		if err1 != nil {
+			return err1
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		logger.Error("scanner-err", logger.Fail)
+		logger.Warn("scanner-err", logger.Fail)
 		return err
 	}
 
 	logger.Info(mainAction, logger.Success, "agency-id", client.config.AgencyId)
+	return nil
+}
+
+func (client *Client) sendMessageFromFileInputAndWriteEchoInFileOutput(messageToSend []byte, fileOutput *os.File) error {
+	if err := safe_socket.SendAll(client.conn, messageToSend); err != nil {
+		logger.Warn("send-message", logger.Fail, "message", string(messageToSend))
+		return err
+	}
+
+	responseReceived, err := safe_socket.RecvAll(client.conn, ECHO_CLIENT_BUFFER_SIZE)
+	if err != nil {
+		logger.Warn("recv-response", logger.Fail, "message", string(messageToSend))
+		return err
+	}
+
+	if len(responseReceived) != len(messageToSend) {
+		err := fmt.Errorf("different lenghts between message and response, message-len: %d, response-len: %d", len(messageToSend), len(responseReceived))
+		logger.Warn("different-lenghts", logger.Fail, "message", string(messageToSend), "response", string(responseReceived))
+		return err
+	}
+
+	line := append(responseReceived, '\n')
+	n_bytes, err := fileOutput.Write(line)
+	if err != nil {
+		logger.Warn("write-file", logger.Fail)
+		return err
+	}
+
+	if n_bytes != len(line) {
+		logger.Warn("write-file", logger.Fail)
+		return fmt.Errorf("different lenghts between response and bytes-writed, len msg: %d, len bytes-writed: %d", len(line), n_bytes)
+	}
 	return nil
 }

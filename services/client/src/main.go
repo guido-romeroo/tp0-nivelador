@@ -46,13 +46,13 @@ func loadConfig() (client.ClientConfig, error) {
 }
 
 func run() int {
-	config, err := loadConfig()
+	client_config, err := loadConfig()
 	if err != nil {
 		logger.Error("load-config", logger.Fail, "err", err)
 		return 1
 	}
 
-	client, err := client.NewClient(config)
+	client, err := client.NewClient(client_config)
 	if err != nil {
 		logger.Error("client-new", logger.Fail, "err", err)
 		return 1
