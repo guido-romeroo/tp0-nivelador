@@ -42,6 +42,7 @@ def reescribir_archivo(cantidad_clientes):
       - PYTHONUNBUFFERED=1
       - SERVER_HOST=server
       - SERVER_PORT=5678
+      
 """
     with open("docker-compose.yaml", "w") as archivo:
         archivo.write(inicio)
