@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"bufio"
+	"encoding/binary"
 	"fmt"
 	"os"
 
@@ -25,6 +26,41 @@ type ClientConfig struct {
 	AgencyId   string
 	InputFile  string
 	OutputFile string
+}
+
+type bet struct {
+	agencyId  uint16
+	firstName string
+	lastName  string
+	document  uint32
+	birthdate string
+	number    uint16
+}
+
+func (bet *bet) toBytes() []byte {
+	bytes := make([]byte, 60)
+	offset := 0
+	binary.BigEndian.PutUint16(bytes[offset:offset+2], bet.agencyId)
+	offset += 2
+
+	bytes = append(bytes, byte(len(bet.firstName)))
+	bytes = append(bytes, bet.firstName...)
+	offset += 1 + len(bet.firstName)
+
+	bytes = append(bytes, byte(len(bet.lastName)))
+	bytes = append(bytes, bet.lastName...)
+
+	offset += 1 + len(bet.lastName)
+
+	binary.BigEndian.PutUint32(bytes[offset:offset+4], bet.document)
+	offset += 4
+
+	bytes = append(bytes, byte(len(bet.birthdate)))
+	bytes = append(bytes, bet.birthdate...)
+	offset += 1 + len(bet.birthdate)
+
+	binary.BigEndian.PutUint16(bytes[offset:offset+2], bet.number)
+	return bytes
 }
 
 type Client struct {
