@@ -86,8 +86,9 @@ func (connectionFacilitator *ConnectionFacilitator) addHeaderToMessage(message [
 	}
 	messagewithHeader := make([]byte, connectionFacilitator.headerSize+len(message))
 
-	binary.BigEndian.PutUint16(messagewithHeader[0:2], uint16(len(message)))
-	if copy(messagewithHeader[connectionFacilitator.headerSize:], message) != len(message) {
+	messageSize := len(message)
+	binary.BigEndian.PutUint16(messagewithHeader[0:2], uint16(messageSize))
+	if copy(messagewithHeader[connectionFacilitator.headerSize:], message) != messageSize {
 		return nil, fmt.Errorf("unexpected error while copying message to buffer with header")
 	}
 	return messagewithHeader, nil
