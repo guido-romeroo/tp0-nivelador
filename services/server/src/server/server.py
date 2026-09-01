@@ -1,34 +1,63 @@
 import socket
 import logger
 import safe_socket
+from connection_facilitator import ConnectionFacilitator
 from lottery.bet import Bet
 
-_ECHO_SERVER_MESSAGE_SIZE = 1024
+def bet_from_bytes(data):
+    min_size = 2 + 2 + 2 + 4 + 2 + 2
 
-def bet_from_bytes(data: bytes) -> Bet:
+    if len(data) < min_size:
+        raise ValueError("data is too short")
+
     offset = 0
-    agency_id = int.from_bytes(data[offset:offset+2], byteorder="big")
+
+    agency_id = int.from_bytes(data[offset:offset + 2], byteorder="big")
     offset += 2
 
-    first_name_length = int.from_bytes(data[offset], byteorder="big")
+    first_name_len = data[offset]
     offset += 1
-    first_name = data[offset:offset+first_name_length].decode("utf-8")
-    offset += first_name_length
 
-    last_name_length = int.from_bytes(data[offset], byteorder="big")
+    if len(data) < offset + first_name_len:
+        raise ValueError("data is too short to contain firstName")
+
+    first_name = data[offset:offset + first_name_len].decode()
+    offset += first_name_len
+
+    if len(data) < offset + 1:
+        raise ValueError("data is too short to contain lastName length")
+
+    last_name_len = data[offset]
     offset += 1
-    last_name = data[offset:offset+last_name_length].decode("utf-8")
-    offset += last_name_length
 
-    document = int.from_bytes(data[offset:offset+4], byteorder="big")
+    if len(data) < offset + last_name_len:
+        raise ValueError("data is too short to contain lastName")
+
+    last_name = data[offset:offset + last_name_len].decode()
+    offset += last_name_len
+
+    if len(data) < offset + 4:
+        raise ValueError("data is too short to contain document")
+
+    document = int.from_bytes(data[offset:offset + 4], byteorder="big")
     offset += 4
 
-    birthdate_length = int.from_bytes(data[offset], byteorder="big")
-    offset += 1
-    birthdate = data[offset:offset+birthdate_length].decode("utf-8")
-    offset += birthdate_length
+    if len(data) < offset + 1:
+        raise ValueError("data is too short to contain birthdate length")
 
-    number = int.from_bytes(data[offset:offset+2], byteorder="big")
+    birthdate_len = data[offset]
+    offset += 1
+
+    if len(data) < offset + birthdate_len:
+        raise ValueError("data is too short to contain birthdate")
+
+    birthdate = data[offset:offset + birthdate_len].decode()
+    offset += birthdate_len
+
+    if len(data) < offset + 2:
+        raise ValueError("data is too short to contain number")
+
+    number = int.from_bytes(data[offset:offset + 2], byteorder="big")
 
     return Bet(
         agency_id=agency_id,
@@ -36,22 +65,21 @@ def bet_from_bytes(data: bytes) -> Bet:
         last_name=last_name,
         document=document,
         birthdate=birthdate,
-        number=number
+        number=number,
     )
+
 class Server:
     def __init__(self, server_host: str, server_port: int) -> None:
         self.server_host = server_host
         self.server_port = server_port
 
-    def _handle_client(self, client_socket):
+    def _handle_client(self, client_connection: ConnectionFacilitator):
         action = "handle-client"
         message_amount = 0
         try:
             logger.info(action, logger.LogResult.in_progress)
             while True:
-                client_message = safe_socket.recv_all(
-                    client_socket, _ECHO_SERVER_MESSAGE_SIZE
-                )
+                client_message = client_connection.receive()
                 if not client_message:
                     logger.info(
                         action,
@@ -61,12 +89,14 @@ class Server:
                     )
                     return
                 message_amount += 1
-                safe_socket.send_all(client_socket, client_message)
+                safe_socket.send_all(client_connection, client_message)
         except Exception as e:
             logger.error(
                 action, logger.LogResult.fail, "messages-amount", message_amount
             )
             raise e
+        finally:
+            client_connection.close()
 
     def run(self):
         action = "accept-connection"
@@ -77,9 +107,11 @@ class Server:
                 try:
                     logger.info(action, logger.LogResult.in_progress)
                     client_socket, _ = server_socket.accept()
+                    client_connection = ConnectionFacilitator(client_socket)
                 except Exception as e:
                     logger.error(action, logger.LogResult.fail)
+                    self.close()
                     raise e
                 logger.info(action, logger.LogResult.success)
 
-                self._handle_client(client_socket)
+                self._handle_client(client_connection)
