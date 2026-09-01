@@ -89,7 +89,7 @@ class Server:
                     )
                     return
                 message_amount += 1
-                safe_socket.send_all(client_connection, client_message)
+                client_connection.send(client_message)
         except Exception as e:
             logger.error(
                 action, logger.LogResult.fail, "messages-amount", message_amount
