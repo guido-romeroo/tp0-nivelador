@@ -1,238 +1,74 @@
 package client
 
 import (
-	"bufio"
-	"net"
-	"time"
+	"io"
 
-	"encoding/binary"
-	"encoding/csv"
 	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/logger"
-	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/safe_socket"
 )
 
-const CONNECTION_ATTEMPTS_MAX = 3
-const CONNECTION_ATTEMPS_DELAY_MS = 200
-
-const ECHO_CLIENT_BUFFER_SIZE = 512
-const ECHO_CLIENT_MESSAGE_AMOUNT = 3
-const ECHO_CLIENT_MESSAGE_DELAY_MS = 1000
-
 type ClientConfig struct {
-	ServerHost string
-	ServerPort string
-	AgencyId   string
-	InputFile  string
-	OutputFile string
+	AgencyId uint16
 }
 
-type bet struct {
-	agencyId  uint16
-	firstName string
-	lastName  string
-	document  uint32
-	birthdate string
-	number    uint16
-}
-
-func (bet *bet) toBytes() []byte {
-	bytes := make([]byte, 60)
-	offset := 0
-	binary.BigEndian.PutUint16(bytes[offset:offset+2], bet.agencyId)
-	offset += 2
-
-	bytes = append(bytes, byte(len(bet.firstName)))
-	bytes = append(bytes, bet.firstName...)
-	offset += 1 + len(bet.firstName)
-
-	bytes = append(bytes, byte(len(bet.lastName)))
-	bytes = append(bytes, bet.lastName...)
-
-	offset += 1 + len(bet.lastName)
-
-	binary.BigEndian.PutUint32(bytes[offset:offset+4], bet.document)
-	offset += 4
-
-	bytes = append(bytes, byte(len(bet.birthdate)))
-	bytes = append(bytes, bet.birthdate...)
-	offset += 1 + len(bet.birthdate)
-
-	binary.BigEndian.PutUint16(bytes[offset:offset+2], bet.number)
-	return bytes
-}
-
-type AgencyRepository struct {
-	bets        *csv.Reader
-	winners     *csv.Writer
-	betsFile    *os.File
-	winnersFile *os.File
-}
-
-func NewAgencyRepository(betsFilePath, winnersFilePath string) (*AgencyRepository, error) {
-	betsFile, err := os.Open(betsFilePath)
+func NewClientConfig(agencyId string) (*ClientConfig, error) {
+	agencyIdUint, err := strconv.ParseUint(agencyId, 10, 16)
 	if err != nil {
-		return nil, err
+		return &ClientConfig{}, fmt.Errorf("AGENCY_ID environment variable must be a valid uint16: %v", err)
 	}
-
-	winnersFile, err := os.OpenFile(winnersFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		return nil, err
-	}
-
-	return &AgencyRepository{
-		betsFile:    betsFile,
-		winnersFile: winnersFile,
-		bets:        csv.NewReader(betsFile),
-		winners:     csv.NewWriter(winnersFile),
+	return &ClientConfig{
+		AgencyId: uint16(agencyIdUint),
 	}, nil
 }
 
-func (repo *AgencyRepository) GetNextBet(bet *bet) error {
-	record, err := repo.bets.Read()
-	if err != nil {
-		return err
-	}
-
-	val, err := strconv.ParseUint(record[0], 10, 16)
-	if err != nil {
-		return err
-	}
-	bet.agencyId = uint16(val)
-	bet.firstName = record[1]
-	bet.lastName = record[2]
-
-	val, err = strconv.ParseUint(record[3], 10, 32)
-	if err != nil {
-		return err
-	}
-	bet.document = uint32(val)
-	bet.birthdate = record[4]
-
-	val, err = strconv.ParseUint(record[5], 10, 16)
-	if err != nil {
-		return err
-	}
-	bet.number = uint16(val)
-
-	return nil
-
-}
-
-func (repo *AgencyRepository) WriteWinner(bet *bet) error {
-	record := []string{
-		strconv.FormatUint(uint64(bet.agencyId), 10),
-		bet.firstName,
-		bet.lastName,
-		strconv.FormatUint(uint64(bet.document), 10),
-		bet.birthdate,
-		strconv.FormatUint(uint64(bet.number), 10),
-	}
-
-	if err := repo.winners.Write(record); err != nil {
-		return err
-	}
-
-	repo.winners.Flush()
-	if err := repo.winners.Error(); err != nil {
-		return err
-	}
-
-	return repo.winners.Error()
-}
-
-func (repo *AgencyRepository) Close() error {
-	repo.winners.Flush()
-
-	if err := repo.winners.Error(); err != nil {
-		repo.winnersFile.Close()
-		repo.betsFile.Close()
-		return err
-	}
-
-	if err := repo.winnersFile.Close(); err != nil {
-		repo.betsFile.Close()
-		return err
-	}
-
-	return repo.betsFile.Close()
-}
-
 type Client struct {
-	connectionWithNationalLottery net.Conn
-	betsRepository                *AgencyRepository
+	connectionWithNationalLottery *ConnectionFacilitator
+	agencyRepository              *AgencyRepository
 	config                        *ClientConfig
 }
 
-func NewClient(repository *AgencyRepository, config *ClientConfig, connection net.Conn) (*Client, error) {
-	// Assuming you have a config struct with the necessary fields
-	connection, err := connectToServer(config.ServerHost, config.ServerPort)
-	if err != nil {
-		logger.Warn("connect-to-server", logger.Fail)
-		return nil, err
-	}
+func NewClient(config *ClientConfig, repository *AgencyRepository, connection *ConnectionFacilitator) *Client {
+	return &Client{connectionWithNationalLottery: connection, agencyRepository: repository, config: config}
 
-	client := &Client{connectionWithNationalLottery: connection, betsRepository: repository, config: config}
-	return client, nil
-}
-
-func connectToServer(host, port string) (net.Conn, error) {
-	const action = "connect-to-server"
-	var err error
-	var conn net.Conn
-
-	logger.Info(action, logger.InProgress)
-	for i := range CONNECTION_ATTEMPTS_MAX {
-		conn, err = net.Dial("tcp", host+":"+port)
-		if err != nil {
-			logger.Warn(action, logger.Fail, "attempt", i)
-			time.Sleep(CONNECTION_ATTEMPS_DELAY_MS * time.Millisecond)
-			continue
-		}
-
-		logger.Info(action, logger.Success)
-		break
-	}
-
-	return conn, err
 }
 
 func (client *Client) Run() error {
 	const mainAction = "test-echo-server"
+
 	defer client.connectionWithNationalLottery.Close()
+	defer client.agencyRepository.Close()
+
 	logger.Info(mainAction, logger.InProgress)
 
-	scanner := bufio.NewScanner(fileInput)
+	for {
 
-	for scanner.Scan() {
-		messageToSend := scanner.Bytes()
-		err1 := client.sendMessageFromFileInputAndWriteEchoInFileOutput(messageToSend, fileOutput)
-		if err1 != nil {
-			return err1
+		bet, err := client.agencyRepository.NextBet(client.config.AgencyId)
+		if err == io.EOF {
+			break
 		}
-	}
+		if err != nil {
+			return err
+		}
 
-	if err := scanner.Err(); err != nil {
-		logger.Warn("scanner-err", logger.Fail)
-		return err
+		if err := client.sendBetsAndReceiveWinners(bet); err != nil {
+			return err
+		}
 	}
 
 	logger.Info(mainAction, logger.Success, "agency-id", client.config.AgencyId)
 	return nil
 }
 
-func (client *Client) sendMessageFromFileInputAndWriteEchoInFileOutput(messageToSend []byte, fileOutput *os.File) error {
-	if err := safe_socket.SendAll(client.connectionWithNationalLottery, messageToSend); err != nil {
-		logger.Warn("send-message", logger.Fail, "message", string(messageToSend))
+func (client *Client) sendBetsAndReceiveWinners(bet *Bet) error {
+	messageToSend := bet.ToBytes()
+	if err := client.connectionWithNationalLottery.Send(messageToSend); err != nil {
 		return err
 	}
 
-	responseReceived, err := safe_socket.RecvAll(client.connectionWithNationalLottery, ECHO_CLIENT_BUFFER_SIZE)
+	responseReceived, err := client.connectionWithNationalLottery.Recv()
 	if err != nil {
-		logger.Warn("recv-response", logger.Fail, "message", string(messageToSend))
 		return err
 	}
 
@@ -242,16 +78,13 @@ func (client *Client) sendMessageFromFileInputAndWriteEchoInFileOutput(messageTo
 		return err
 	}
 
-	line := append(responseReceived, '\n')
-	n_bytes, err := fileOutput.Write(line)
+	betOfServer, err := BetFromBytes(responseReceived)
 	if err != nil {
-		logger.Warn("write-file", logger.Fail)
 		return err
 	}
 
-	if n_bytes != len(line) {
-		logger.Warn("write-file", logger.Fail)
-		return fmt.Errorf("different lenghts between response and bytes-writed, len msg: %d, len bytes-writed: %d", len(line), n_bytes)
+	if err := client.agencyRepository.WriteWinner(betOfServer); err != nil {
+		return err
 	}
 	return nil
 }
