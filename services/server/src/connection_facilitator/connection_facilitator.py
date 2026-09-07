@@ -1,5 +1,6 @@
 import socket
 import safe_socket
+from protocol import Message
 
 _HEADER_SIZE = 2
 _MAX_MESSAGE_SIZE = 65535
@@ -41,14 +42,15 @@ class ConnectionFacilitator:
 
         return bytes(message_with_header)
 
-    def send(self, data: bytes):
+    def send(self, msg: Message):
         if self.connection is None:
             raise RuntimeError("Connection is closed")
 
+        data = msg.to_bytes()
         message_with_header = self._add_header_to_message(data)
         safe_socket.send_all(self.connection, message_with_header)
 
-    def receive(self) -> bytes:
+    def receive(self) -> Message:
         if self.connection is None:
             raise RuntimeError("Connection is closed")
 
@@ -62,10 +64,12 @@ class ConnectionFacilitator:
             byteorder="big",
         )
 
-        return safe_socket.recv_all(
+        msg_bytes = safe_socket.recv_all(
             self.connection,
             message_len,
         )
+
+        return Message.from_bytes(msg_bytes)
 
 
     

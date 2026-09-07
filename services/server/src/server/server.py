@@ -1,6 +1,6 @@
 import socket
 import logger
-import safe_socket
+from protocol import Message
 from connection_facilitator import ConnectionFacilitator
 from lottery.bet import Bet
 
@@ -80,7 +80,7 @@ class Server:
             logger.info(action, logger.LogResult.in_progress)
             while True:
                 client_message = client_connection.receive()
-                if not client_message:
+                if client_message.is_bye():
                     logger.info(
                         action,
                         logger.LogResult.success,
@@ -89,12 +89,12 @@ class Server:
                     )
                     return
                 message_amount += 1
-                client_connection.send(client_message)
+                winner = Message(Message.WINNER, client_message.payload)
+                client_connection.send(winner)
         except Exception as e:
             logger.error(
-                action, logger.LogResult.fail, "messages-amount", message_amount
+                action, logger.LogResult.fail, "error", str(e)
             )
-            raise e
         finally:
             client_connection.close()
 
@@ -108,10 +108,10 @@ class Server:
                     logger.info(action, logger.LogResult.in_progress)
                     client_socket, _ = server_socket.accept()
                     client_connection = ConnectionFacilitator(client_socket)
+                    self._handle_client(client_connection)
                 except Exception as e:
                     logger.error(action, logger.LogResult.fail)
                     self.close()
                     raise e
                 logger.info(action, logger.LogResult.success)
 
-                self._handle_client(client_connection)

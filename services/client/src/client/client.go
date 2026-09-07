@@ -46,6 +46,10 @@ func (client *Client) Run() error {
 
 		bet, err := client.agencyRepository.NextBet(client.config.AgencyId)
 		if err == io.EOF {
+			bye := newMessage(BYE, []byte{})
+			if err := client.connectionWithNationalLottery.Send(bye); err != nil {
+				return err
+			}
 			break
 		}
 		if err != nil {
@@ -62,23 +66,26 @@ func (client *Client) Run() error {
 }
 
 func (client *Client) sendBetsAndReceiveWinners(bet *Bet) error {
-	messageToSend := bet.ToBytes()
+	logger.Info("send-bet", logger.InProgress)
+	messageToSend := newMessage(BET, bet.ToBytes())
 	if err := client.connectionWithNationalLottery.Send(messageToSend); err != nil {
+		logger.Error("send-bet", logger.Fail)
 		return err
 	}
 
 	responseReceived, err := client.connectionWithNationalLottery.Recv()
 	if err != nil {
+		logger.Error("receive-winner", logger.Fail)
 		return err
 	}
 
-	if len(responseReceived) != len(messageToSend) {
-		err := fmt.Errorf("different lenghts between message and response, message-len: %d, response-len: %d", len(messageToSend), len(responseReceived))
-		logger.Warn("different-lenghts", logger.Fail, "message", string(messageToSend), "response", string(responseReceived))
+	if len(responseReceived.Payload) != len(messageToSend.Payload) {
+		err := fmt.Errorf("different lenghts between message and response, message-len: %d, response-len: %d", len(messageToSend.Payload), len(responseReceived.Payload))
+		logger.Warn("different-lenghts", logger.Fail, "message", string(messageToSend.Payload), "response", string(responseReceived.Payload))
 		return err
 	}
 
-	betOfServer, err := BetFromBytes(responseReceived)
+	betOfServer, err := BetFromBytes(responseReceived.Payload)
 	if err != nil {
 		return err
 	}

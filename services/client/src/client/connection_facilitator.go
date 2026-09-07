@@ -94,15 +94,15 @@ func (connectionFacilitator *ConnectionFacilitator) addHeaderToMessage(message [
 	return messagewithHeader, nil
 }
 
-func (connectionFacilitator *ConnectionFacilitator) Send(message []byte) error {
-	messagewithHeader, err := connectionFacilitator.addHeaderToMessage(message)
+func (connectionFacilitator *ConnectionFacilitator) Send(message *Message) error {
+	messagewithHeader, err := connectionFacilitator.addHeaderToMessage(message.ToBytes())
 	if err != nil {
 		return err
 	}
 	return safe_socket.SendAll(connectionFacilitator.connection, messagewithHeader)
 }
 
-func (connectionFacilitator *ConnectionFacilitator) Recv() ([]byte, error) {
+func (connectionFacilitator *ConnectionFacilitator) Recv() (*Message, error) {
 
 	messageLen, err := safe_socket.RecvAll(connectionFacilitator.connection, connectionFacilitator.headerSize)
 	if err != nil {
@@ -113,5 +113,5 @@ func (connectionFacilitator *ConnectionFacilitator) Recv() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return message, nil
+	return FromBytes(message), nil
 }
