@@ -2,7 +2,8 @@ import socket
 import logger
 from protocol import Message
 from connection_facilitator import ConnectionFacilitator
-from lottery.bet import Bet
+from lottery.bet import Bet 
+from lottery.lottery import Lottery
 
 def bet_from_bytes(data):
     min_size = 2 + 2 + 2 + 4 + 2 + 2
@@ -68,14 +69,42 @@ def bet_from_bytes(data):
         number=number,
     )
 
+def bet_to_bytes(bet: Bet) -> bytes:
+    first_name_bytes = bet.first_name.encode()
+    last_name_bytes = bet.last_name.encode()
+    birthdate_bytes = bet.birthdate.encode()
+
+    return (
+        bet.agency_id.to_bytes(2, byteorder="big") +
+        len(first_name_bytes).to_bytes(1, byteorder="big") +
+        first_name_bytes +
+        len(last_name_bytes).to_bytes(1, byteorder="big") +
+        last_name_bytes +
+        bet.document.to_bytes(4, byteorder="big") +
+        len(birthdate_bytes).to_bytes(1, byteorder="big") +
+        birthdate_bytes +
+        bet.number.to_bytes(2, byteorder="big")
+    )
+
 class Server:
     def __init__(self, server_host: str, server_port: int) -> None:
         self.server_host = server_host
         self.server_port = server_port
 
+    def send_winner_bets_to_client(self, client_connection: ConnectionFacilitator, winner_bets: list[Bet]):
+        for bet in winner_bets:
+            bet_bytes = bet_to_bytes(bet)
+            message = Message(Message.WINNER, bet_bytes)
+            client_connection.send(message)
+        bye = Message(Message.BYE, b'')
+        client_connection.send(bye)
+
+
     def _handle_client(self, client_connection: ConnectionFacilitator):
         action = "handle-client"
         message_amount = 0
+        agency_id = None
+        lottery = Lottery("bets")
         try:
             logger.info(action, logger.LogResult.in_progress)
             while True:
@@ -87,10 +116,14 @@ class Server:
                         "messages-amount",
                         message_amount,
                     )
-                    return
+                    break
                 message_amount += 1
-                winner = Message(Message.WINNER, client_message.payload)
-                client_connection.send(winner)
+                bet = bet_from_bytes(client_message.payload)
+                lottery.store_bets([bet])
+                if agency_id is None:
+                    agency_id = bet.agency_id
+            winner_bets = [bet for bet in lottery.load_bets() if lottery.has_won(bet) and bet.agency_id == agency_id]
+            self.send_winner_bets_to_client(client_connection, winner_bets)
         except Exception as e:
             logger.error(
                 action, logger.LogResult.fail, "error", str(e)

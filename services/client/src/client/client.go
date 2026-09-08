@@ -35,19 +35,61 @@ func NewClient(config *ClientConfig, repository *AgencyRepository, connection *C
 }
 
 func (client *Client) Run() error {
-	const mainAction = "test-echo-server"
+	const mainAction = "client-run"
 
 	defer client.connectionWithNationalLottery.Close()
 	defer client.agencyRepository.Close()
 
 	logger.Info(mainAction, logger.InProgress)
 
+	err := client.sendBetsToNationalLottery()
+	if err != nil {
+		return err
+	}
+
+	err = client.writeWinnersFromNationalLottery()
+	if err != nil {
+		return err
+	}
+
+	logger.Info(mainAction, logger.Success, "agency-id", client.config.AgencyId)
+	return nil
+}
+
+func (client *Client) writeWinnersFromNationalLottery() error {
+	for {
+		responseReceived, err := client.connectionWithNationalLottery.Recv()
+		if err != nil {
+			logger.Error("receiving-response", logger.Fail)
+			return err
+		}
+
+		if responseReceived.IsBye() {
+			break
+		}
+
+		winner, err := BetFromBytes(responseReceived.Payload)
+		if err != nil {
+			logger.Error("parsing-winner", logger.Fail)
+			return err
+		}
+
+		if err := client.agencyRepository.WriteWinner(winner); err != nil {
+			logger.Error("writing-winner", logger.Fail)
+			return err
+		}
+	}
+	return nil
+}
+
+func (client *Client) sendBetsToNationalLottery() error {
 	for {
 
 		bet, err := client.agencyRepository.NextBet(client.config.AgencyId)
 		if err == io.EOF {
 			bye := newMessage(BYE, []byte{})
 			if err := client.connectionWithNationalLottery.Send(bye); err != nil {
+				logger.Error("sending-bye", logger.Fail)
 				return err
 			}
 			break
@@ -56,42 +98,11 @@ func (client *Client) Run() error {
 			return err
 		}
 
-		if err := client.sendBetsAndReceiveWinners(bet); err != nil {
+		message := newMessage(BET, bet.ToBytes())
+		if err := client.connectionWithNationalLottery.Send(message); err != nil {
+			logger.Error("sending-bet", logger.Fail)
 			return err
 		}
-	}
-
-	logger.Info(mainAction, logger.Success, "agency-id", client.config.AgencyId)
-	return nil
-}
-
-func (client *Client) sendBetsAndReceiveWinners(bet *Bet) error {
-	logger.Info("send-bet", logger.InProgress)
-	messageToSend := newMessage(BET, bet.ToBytes())
-	if err := client.connectionWithNationalLottery.Send(messageToSend); err != nil {
-		logger.Error("send-bet", logger.Fail)
-		return err
-	}
-
-	responseReceived, err := client.connectionWithNationalLottery.Recv()
-	if err != nil {
-		logger.Error("receive-winner", logger.Fail)
-		return err
-	}
-
-	if len(responseReceived.Payload) != len(messageToSend.Payload) {
-		err := fmt.Errorf("different lenghts between message and response, message-len: %d, response-len: %d", len(messageToSend.Payload), len(responseReceived.Payload))
-		logger.Warn("different-lenghts", logger.Fail, "message", string(messageToSend.Payload), "response", string(responseReceived.Payload))
-		return err
-	}
-
-	betOfServer, err := BetFromBytes(responseReceived.Payload)
-	if err != nil {
-		return err
-	}
-
-	if err := client.agencyRepository.WriteWinner(betOfServer); err != nil {
-		return err
 	}
 	return nil
 }
