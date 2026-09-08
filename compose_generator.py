@@ -30,6 +30,7 @@ def cliente_str(id):
       - SERVER_PORT=5678
       - INPUT_FILE=/input/input-{id}.csv
       - OUTPUT_FILE=/output/output-{id}.csv
+      - BATCH_SIZE=10
     volumes:
       - ./input:/input
       - ./output:/output

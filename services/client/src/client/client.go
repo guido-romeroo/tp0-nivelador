@@ -10,16 +10,28 @@ import (
 )
 
 type ClientConfig struct {
-	AgencyId uint16
+	AgencyId  uint16
+	BatchSize uint16
 }
 
-func NewClientConfig(agencyId string) (*ClientConfig, error) {
+func NewClientConfig(agencyId string, batchSize string) (*ClientConfig, error) {
 	agencyIdUint, err := strconv.ParseUint(agencyId, 10, 16)
 	if err != nil {
 		return &ClientConfig{}, fmt.Errorf("AGENCY_ID environment variable must be a valid uint16: %v", err)
 	}
+
+	batchSizeUint, err := strconv.ParseUint(batchSize, 10, 16)
+	if err != nil {
+		return &ClientConfig{}, fmt.Errorf("BATCH_SIZE environment variable must be a valid uint16: %v", err)
+	}
+
+	if batchSizeUint == 0 {
+		return &ClientConfig{}, fmt.Errorf("BATCH_SIZE environment variable must be greater than 0")
+	}
+
 	return &ClientConfig{
-		AgencyId: uint16(agencyIdUint),
+		AgencyId:  uint16(agencyIdUint),
+		BatchSize: uint16(batchSizeUint),
 	}, nil
 }
 
