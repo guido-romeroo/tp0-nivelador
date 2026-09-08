@@ -95,10 +95,26 @@ func (client *Client) writeWinnersFromNationalLottery() error {
 }
 
 func (client *Client) sendBetsToNationalLottery() error {
-	for {
+	maxSize := client.connectionWithNationalLottery.maxMessageSize
+	batchPayload := make([]byte, 0, maxSize)
+	betsInBatch := 0
 
+	sendAndCleanPayload := func() error {
+		if err := client.sendBatch(batchPayload); err != nil {
+			return err
+		}
+		batchPayload = batchPayload[:0]
+		betsInBatch = 0
+		return nil
+	}
+
+	for {
 		bet, err := client.agencyRepository.NextBet(client.config.AgencyId)
 		if err == io.EOF {
+			err := client.sendBatch(batchPayload)
+			if err != nil {
+				return err
+			}
 			bye := newMessage(BYE, []byte{})
 			if err := client.connectionWithNationalLottery.Send(bye); err != nil {
 				logger.Error("sending-bye", logger.Fail)
@@ -110,11 +126,44 @@ func (client *Client) sendBetsToNationalLottery() error {
 			return err
 		}
 
-		message := newMessage(BET, bet.ToBytes())
-		if err := client.connectionWithNationalLottery.Send(message); err != nil {
-			logger.Error("sending-bet", logger.Fail)
-			return err
+		bytes := bet.ToBytes()
+
+		if len(bytes) > maxSize {
+			return fmt.Errorf("unexpected error: bet size exceeds maximum message size. Bet: %v, MaxSize: %d", bet, maxSize)
 		}
+
+		if len(bytes)+len(batchPayload) > maxSize || betsInBatch+1 > int(client.config.BatchSize) {
+			if err := sendAndCleanPayload(); err != nil {
+				return err
+			}
+		}
+		batchPayload = append(batchPayload, bytes...)
+		betsInBatch++
+	}
+	return nil
+}
+
+func (client *Client) sendBatch(batchPayload []byte) error {
+	if len(batchPayload) == 0 {
+		return nil
+	}
+	batchMessage := newMessage(BATCH, batchPayload)
+	if err := client.connectionWithNationalLottery.Send(batchMessage); err != nil {
+		logger.Error("sending-batch", logger.Fail)
+		return err
+	}
+	response, err := client.connectionWithNationalLottery.Recv()
+	if err != nil {
+		logger.Error("receiving-ack", logger.Fail)
+		return err
+	}
+	if response.IsNack() {
+		logger.Error("receiving-nack", logger.Fail)
+		return fmt.Errorf("server rejected batch (NACK)")
+	}
+
+	if !response.IsAck() {
+		return fmt.Errorf("expected ACK, got %v", response.Type)
 	}
 	return nil
 }

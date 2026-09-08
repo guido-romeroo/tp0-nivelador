@@ -1,1 +1,1 @@
-from .protocol import Message, bet_to_bytes, bet_from_bytes
+from .protocol import Message, bet_to_bytes, bets_from_bytes

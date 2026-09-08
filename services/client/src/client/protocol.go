@@ -10,7 +10,10 @@ type MessageType byte
 const (
 	BET    MessageType = 0x01
 	WINNER MessageType = 0x02
-	BYE    MessageType = 0x03
+	ACK    MessageType = 0x03
+	NACK   MessageType = 0x04
+	BATCH  MessageType = 0x05
+	BYE    MessageType = 0x06
 )
 
 type Message struct {
@@ -38,6 +41,14 @@ func FromBytes(data []byte) *Message {
 
 func (m *Message) IsWinner() bool {
 	return m.Type == WINNER
+}
+
+func (m *Message) IsAck() bool {
+	return m.Type == ACK
+}
+
+func (m *Message) IsNack() bool {
+	return m.Type == NACK
 }
 
 func (m *Message) IsBye() bool {
