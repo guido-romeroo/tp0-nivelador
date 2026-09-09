@@ -56,7 +56,7 @@ func (m *Message) IsBye() bool {
 }
 
 func (bet *Bet) ToBytes() []byte {
-	size := 2 + 1 + len(bet.firstName) + 1 + len(bet.lastName) + 4 + 1 + len(bet.birthdate) + 2
+	size := 2 + 1 + len(bet.firstName) + 1 + len(bet.lastName) + 4 + 1 + len(bet.birthdate) + 4
 	bytes := make([]byte, size)
 	offset := 0
 	binary.BigEndian.PutUint16(bytes[offset:offset+2], bet.agencyId)
