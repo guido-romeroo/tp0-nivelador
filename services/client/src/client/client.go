@@ -94,6 +94,15 @@ func (client *Client) writeWinnersFromNationalLottery() error {
 	return nil
 }
 
+func (client *Client) sendBye() error {
+	bye := newMessage(BYE, []byte{})
+	if err := client.connectionWithNationalLottery.Send(bye); err != nil {
+		logger.Error("sending-bye", logger.Fail)
+		return err
+	}
+	return nil
+}
+
 func (client *Client) sendBetsToNationalLottery() error {
 	maxSize := client.connectionWithNationalLottery.maxMessageSize
 	batchPayload := make([]byte, 0, maxSize)
@@ -115,9 +124,8 @@ func (client *Client) sendBetsToNationalLottery() error {
 			if err != nil {
 				return err
 			}
-			bye := newMessage(BYE, []byte{})
-			if err := client.connectionWithNationalLottery.Send(bye); err != nil {
-				logger.Error("sending-bye", logger.Fail)
+			err = client.sendBye()
+			if err != nil {
 				return err
 			}
 			break
@@ -159,6 +167,10 @@ func (client *Client) sendBatch(batchPayload []byte) error {
 	}
 	if response.IsNack() {
 		logger.Error("receiving-nack", logger.Fail)
+		err := client.sendBye()
+		if err != nil {
+			return err
+		}
 		return fmt.Errorf("server rejected batch (NACK)")
 	}
 
