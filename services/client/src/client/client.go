@@ -50,7 +50,14 @@ func (client *Client) Run() error {
 	const mainAction = "client-run"
 
 	defer client.connectionWithNationalLottery.Close()
-	defer client.agencyRepository.Close()
+	defer func() {
+		if err := client.agencyRepository.Close(); err != nil {
+			logger.Error(
+				"agency-repository-close",
+				"error", err,
+			)
+		}
+	}()
 
 	logger.Info(mainAction, logger.InProgress)
 

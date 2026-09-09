@@ -1,0 +1,21 @@
+server    | 2026/09/09 16:37:33 INFO action=run result=in-progress 
+server    | 2026/09/09 16:37:33 INFO action=coordinate-raffle result=in-progress 
+server    | 2026/09/09 16:37:33 INFO action=accept-connection result=in-progress 
+server    | 2026/09/09 16:37:33 INFO action=accept-connection result=success 
+server    | 2026/09/09 16:37:33 INFO action=handle-client result=in-progress 
+server    | 2026/09/09 16:37:33 INFO action=accept-connection result=in-progress 
+server    | 2026/09/09 16:37:33 INFO action=receive-bets-from-client result=success 
+server    | 2026/09/09 16:37:33 INFO action=accept-connection result=success 
+client_1  | 2026/09/09 16:37:32 INFO action=connect-to-server result=in-progress
+client_1  | 2026/09/09 16:37:32 WARN action=connect-to-server result=fail attempt=0
+client_1  | 2026/09/09 16:37:33 WARN action=connect-to-server result=fail attempt=1
+client_1  | 2026/09/09 16:37:33 INFO action=connect-to-server result=success
+server    | 2026/09/09 16:37:33 INFO action=handle-client result=in-progress 
+server    | 2026/09/09 16:37:33 INFO action=accept-connection result=in-progress 
+client_1  | 2026/09/09 16:37:33 INFO action=client-run result=in-progress
+server    | 2026/09/09 16:37:34 INFO action=receive-bets-from-client result=success 
+client_0  | 2026/09/09 16:37:32 INFO action=connect-to-server result=in-progress
+client_0  | 2026/09/09 16:37:32 WARN action=connect-to-server result=fail attempt=0
+client_0  | 2026/09/09 16:37:32 WARN action=connect-to-server result=fail attempt=1
+client_0  | 2026/09/09 16:37:33 INFO action=connect-to-server result=success
+client_0  | 2026/09/09 16:37:33 INFO action=client-run result=in-progress
