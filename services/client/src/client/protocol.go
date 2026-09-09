@@ -74,12 +74,12 @@ func (bet *Bet) ToBytes() []byte {
 	offset += copy(bytes[offset:], []byte{byte(len(bet.birthdate))})
 	offset += copy(bytes[offset:], bet.birthdate)
 
-	binary.BigEndian.PutUint16(bytes[offset:offset+2], bet.number)
+	binary.BigEndian.PutUint32(bytes[offset:offset+4], bet.number)
 	return bytes
 }
 
 func BetFromBytes(data []byte) (*Bet, error) {
-	if len(data) < 2+2+2+4+2+2 {
+	if len(data) < 2+2+2+4+2+4 {
 		return nil, fmt.Errorf("data is too short to contain the minimum required fields for a Bet")
 	}
 
@@ -127,10 +127,10 @@ func BetFromBytes(data []byte) (*Bet, error) {
 	birthdate := string(data[offset : offset+birthdateLen])
 	offset += birthdateLen
 
-	if len(data) < offset+2 {
+	if len(data) < offset+4 {
 		return nil, fmt.Errorf("data is too short to contain number")
 	}
-	number := binary.BigEndian.Uint16(data[offset : offset+2])
+	number := binary.BigEndian.Uint32(data[offset : offset+4])
 
 	return &Bet{
 		agencyId:  agencyId,

@@ -48,7 +48,7 @@ def bet_to_bytes(bet: Bet) -> bytes:
         bet.document.to_bytes(4, byteorder="big") +
         len(birthdate_bytes).to_bytes(1, byteorder="big") +
         birthdate_bytes +
-        bet.number.to_bytes(2, byteorder="big")
+        bet.number.to_bytes(4, byteorder="big")
     )
 
 def bets_from_bytes(data) -> list[Bet]:
@@ -101,11 +101,11 @@ def bets_from_bytes(data) -> list[Bet]:
         birthdate = data[offset:offset + birthdate_len].decode()
         offset += birthdate_len
 
-        if len(data) < offset + 2:
+        if len(data) < offset + 4:
             raise ValueError("data is too short to contain number")
 
-        number = int.from_bytes(data[offset:offset + 2], byteorder="big")
-        offset += 2
+        number = int.from_bytes(data[offset:offset + 4], byteorder="big")
+        offset += 4
         bets.append(Bet(
             agency_id=agency_id,
             first_name=first_name,

@@ -10,10 +10,10 @@ type Bet struct {
 	lastName  string
 	document  uint32
 	birthdate string
-	number    uint16
+	number    uint32
 }
 
-func NewBet(agencyId uint16, firstName string, lastName string, document uint32, birthdate string, number uint16) (*Bet, error) {
+func NewBet(agencyId uint16, firstName string, lastName string, document uint32, birthdate string, number uint32) (*Bet, error) {
 	if len(firstName) > 255 {
 		return nil, fmt.Errorf("first name exceeds maximum length of 255 characters")
 	}

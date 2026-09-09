@@ -54,11 +54,11 @@ func (repo *AgencyRepository) NextBet(agencyId uint16) (*Bet, error) {
 	document := uint32(val)
 	birthdate := record[3]
 
-	val, err = strconv.ParseUint(record[4], 10, 16)
+	val, err = strconv.ParseUint(record[4], 10, 32)
 	if err != nil {
 		return nil, err
 	}
-	number := uint16(val)
+	number := uint32(val)
 
 	bet, err := NewBet(agencyId, firstName, lastName, document, birthdate, number)
 
