@@ -101,12 +101,10 @@ class Server:
     def accept_connection(self, server_socket: socket.socket):
         action = "accept-connection"
         try:
-            logger.info(action, logger.LogResult.in_progress)
             client_socket, _ = server_socket.accept()
         except Exception as e:
             logger.error(action, logger.LogResult.fail)
             raise e
-        logger.info(action, logger.LogResult.success)
         return ConnectionFacilitator(client_socket)
 
     def accept_connections(self, coordinator_channel: queue.Queue):
@@ -182,8 +180,8 @@ class Server:
 
     def run(self):
         action = "run"
-        logger.info(action, logger.LogResult.in_progress)
         coordinator_channel = queue.Queue()
         connection_acceptor_thread = threading.Thread(target=self.accept_connections, args=(coordinator_channel,))
         connection_acceptor_thread.start()
+        logger.info(action, logger.LogResult.in_progress)
         self.coordinate_raffle(coordinator_channel)

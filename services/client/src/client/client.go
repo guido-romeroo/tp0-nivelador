@@ -49,7 +49,14 @@ func NewClient(config *ClientConfig, repository *AgencyRepository, connection *C
 func (client *Client) Run() error {
 	const mainAction = "client-run"
 
-	defer client.connectionWithNationalLottery.Close()
+	defer func() {
+		if err := client.connectionWithNationalLottery.Close(); err != nil {
+			logger.Error(
+				"connection-close",
+				"error", err,
+			)
+		}
+	}()
 	defer func() {
 		if err := client.agencyRepository.Close(); err != nil {
 			logger.Error(
