@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/csv"
+	"errors"
 	"os"
 	"strconv"
 )
@@ -67,7 +68,6 @@ func (repo *AgencyRepository) NextBet(agencyId uint16) (*Bet, error) {
 
 func (repo *AgencyRepository) WriteWinner(bet *Bet) error {
 	record := []string{
-		//strconv.FormatUint(uint64(bet.agencyId), 10), TODO: REVISAR LUEGO SI INCLUIRLO O NO
 		bet.firstName,
 		bet.lastName,
 		strconv.FormatUint(uint64(bet.document), 10),
@@ -87,16 +87,11 @@ func (repo *AgencyRepository) WriteWinner(bet *Bet) error {
 func (repo *AgencyRepository) Close() error {
 	repo.winners.Flush()
 
-	if err := repo.winners.Error(); err != nil {
-		repo.winnersFile.Close()
-		repo.betsFile.Close()
-		return err
-	}
+	errFlush := repo.winners.Error()
 
-	if err := repo.winnersFile.Close(); err != nil {
-		repo.betsFile.Close()
-		return err
-	}
+	errWinnersClose := repo.winnersFile.Close()
 
-	return repo.betsFile.Close()
+	errBetsClose := repo.betsFile.Close()
+
+	return errors.Join(errFlush, errWinnersClose, errBetsClose)
 }
