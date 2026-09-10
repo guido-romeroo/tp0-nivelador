@@ -15,7 +15,5 @@ def send_all(socket: socket.socket, bytes):
     to_send = len(bytes)
     while to_send > 0:
         n = socket.send(bytes[len(bytes) - to_send:])
-        if n == 0:
-            raise RuntimeError("socket connection broken")
         to_send -= n
 
