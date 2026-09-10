@@ -95,12 +95,12 @@ class Server:
                 if agency_id is None:
                     agency_id = bets[0].agency_id
 
-                if not self.send_bets_to_coordinator(coordinator_channel, bets): # bloqueo
+                if not self.send_bets_to_coordinator(coordinator_channel, bets):
                     client_connection.send(Message(Message.NACK, b'')) 
                     continue
                 client_connection.send(Message(Message.ACK, b'')) 
 
-            winner_bets = self.receive_winners_from_coordinator(coordinator_channel, agency_id) # bloqueo
+            winner_bets = self.receive_winners_from_coordinator(coordinator_channel, agency_id) 
             self.send_winner_bets_to_client(client_connection, winner_bets) 
         except Exception as e:
             if not self.shutdown_event.is_set():
@@ -144,7 +144,7 @@ class Server:
                 thread.start()
                 threads.append(thread)
             for thread in threads:
-                thread.join(timeout=self.SHUTDOWN_JOIN_TIMEOUT) # aseguramos frente a un shutdown que todos los hilos terminen antes de cerrar el servidor, si no lo hizo el coordinator antes
+                thread.join(timeout=self.SHUTDOWN_JOIN_TIMEOUT)
 
 
     def store_bets(self, lottery: Lottery, content: tuple[list[Bet], queue.Queue]):
@@ -193,16 +193,16 @@ class Server:
 
     def graceful_shutdown(self, channels_to_send_winners: list[queue.Queue]):
         if channels_to_send_winners:
-            self.send_winners(None, channels_to_send_winners) # desbloqueamos a threads de clientes
+            self.send_winners(None, channels_to_send_winners)
         try:
             while True:
                 msg = self.coordinator_channel.get_nowait()
                 if msg.is_finished():
-                    msg.content.join(timeout=self.SHUTDOWN_JOIN_TIMEOUT) # aseguramos frente a un shutdown que todos los hilos terminen antes de cerrar el servidor, si no lo hizo el coordinator antes
+                    msg.content.join(timeout=self.SHUTDOWN_JOIN_TIMEOUT)
                 elif msg.is_bets():
-                    msg.content[1].put(False) # desbloqueamos a threads de clientes
+                    msg.content[1].put(False)
                 elif msg.is_start_raffle():
-                    msg.content.put(None) # desbloqueamos a threads de clientes
+                    msg.content.put(None)
         except queue.Empty:
             logger.info(
                 "graceful-shutdown",
@@ -247,7 +247,7 @@ class Server:
 
     def handle_shutdown_signal(self, _signum, _frame):
         self.shutdown_event.set()
-        self.coordinator_channel.put(CoordinateMessage(CoordinateMessage.SHUTDOWN, None)) # desbloqueamos al coordinator si lo estaba
+        self.coordinator_channel.put(CoordinateMessage(CoordinateMessage.SHUTDOWN, None))
         if self.server_socket is not None:
             try:
                 self.server_socket.shutdown(socket.SHUT_RDWR)

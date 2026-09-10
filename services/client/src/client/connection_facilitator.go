@@ -27,7 +27,7 @@ type ConnectionFacilitator struct {
 	connection     net.Conn
 }
 
-// El protocolo actual es simplemente enviar un mensaje con un header de 2 bytes que indica el tamaño del mensaje, seguido del mensaje en sí.
+// Se envía un mensaje con un header de 2 bytes que indica el tamaño del mensaje, seguido del mensaje en sí.
 // Al hacer un recv, se lee primero el header de 2 bytes para saber el tamaño del mensaje, y luego se lee el mensaje completo.
 func NewConnectionFacilitator(config *ConnectionConfig) (*ConnectionFacilitator, error) {
 	connection, err := connectToServer(config.Host, config.Port)
