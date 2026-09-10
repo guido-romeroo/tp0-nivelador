@@ -1,12 +1,11 @@
 from lottery.bet import Bet 
 
 class Message:
-    BET = 0x01
+    BETS = 0x01
     WINNER = 0x02
     ACK = 0x03
     NACK = 0x04
-    BATCH = 0x05
-    BYE = 0x06
+    BYE = 0x05
 
     def __init__(self, message_type, payload):
         self.type = message_type
@@ -25,14 +24,11 @@ class Message:
             data[1:]
         )
 
-    def is_bet(self):
-        return self.type == Message.BET
+    def is_bets(self):
+        return self.type == Message.BETS
 
     def is_bye(self):
         return self.type == Message.BYE
-
-    def is_batch(self):
-        return self.type == Message.BATCH
 
 def bet_to_bytes(bet: Bet) -> bytes:
     first_name_bytes = bet.first_name.encode()

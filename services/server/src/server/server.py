@@ -58,7 +58,7 @@ class Server:
                 logger.LogResult.success,
             )
             return []
-        if not client_message.is_batch() and not client_message.is_bet():
+        if not client_message.is_bets():
             err = f"invalid message type: {client_message.type}"
             logger.error(action, logger.LogResult.fail, "error", err)
             raise ValueError(err)
