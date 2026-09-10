@@ -2,7 +2,7 @@ package client
 
 import (
 	"encoding/binary"
-	"fmt"
+	"errors"
 )
 
 type MessageType byte
@@ -79,7 +79,7 @@ func (bet *Bet) ToBytes() []byte {
 
 func BetFromBytes(data []byte) (*Bet, error) {
 	if len(data) < 2+2+2+4+2+4 {
-		return nil, fmt.Errorf("data is too short to contain the minimum required fields for a Bet")
+		return nil, errors.New("data is too short to contain the minimum required fields for a Bet")
 	}
 
 	offset := 0
@@ -90,44 +90,44 @@ func BetFromBytes(data []byte) (*Bet, error) {
 	offset++
 
 	if len(data) < offset+firstNameLen {
-		return nil, fmt.Errorf("data is too short to contain firstName")
+		return nil, errors.New("data is too short to contain firstName")
 	}
 
 	firstName := string(data[offset : offset+firstNameLen])
 	offset += firstNameLen
 
 	if len(data) < offset+1 {
-		return nil, fmt.Errorf("data is too short to contain lastName length")
+		return nil, errors.New("data is too short to contain lastName length")
 	}
 	lastNameLen := int(data[offset])
 	offset++
 
 	if len(data) < offset+lastNameLen {
-		return nil, fmt.Errorf("data is too short to contain lastName")
+		return nil, errors.New("data is too short to contain lastName")
 	}
 	lastName := string(data[offset : offset+lastNameLen])
 	offset += lastNameLen
 
 	if len(data) < offset+4 {
-		return nil, fmt.Errorf("data is too short to contain document")
+		return nil, errors.New("data is too short to contain document")
 	}
 	document := binary.BigEndian.Uint32(data[offset : offset+4])
 	offset += 4
 
 	if len(data) < offset+1 {
-		return nil, fmt.Errorf("data is too short to contain birthdate length")
+		return nil, errors.New("data is too short to contain birthdate length")
 	}
 	birthdateLen := int(data[offset])
 	offset += 1
 
 	if len(data) < offset+birthdateLen {
-		return nil, fmt.Errorf("data is too short to contain birthdate")
+		return nil, errors.New("data is too short to contain birthdate")
 	}
 	birthdate := string(data[offset : offset+birthdateLen])
 	offset += birthdateLen
 
 	if len(data) < offset+4 {
-		return nil, fmt.Errorf("data is too short to contain number")
+		return nil, errors.New("data is too short to contain number")
 	}
 	number := binary.BigEndian.Uint32(data[offset : offset+4])
 

@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -89,7 +90,7 @@ func (connectionFacilitator *ConnectionFacilitator) addHeaderToMessage(message [
 	messageSize := len(message)
 	binary.BigEndian.PutUint16(messagewithHeader[0:2], uint16(messageSize))
 	if copy(messagewithHeader[connectionFacilitator.headerSize:], message) != messageSize {
-		return nil, fmt.Errorf("unexpected error while copying message to buffer with header")
+		return nil, errors.New("unexpected error while copying message to buffer with header")
 	}
 	return messagewithHeader, nil
 }

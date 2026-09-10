@@ -1,7 +1,7 @@
 package client
 
 import (
-	"fmt"
+	"errors"
 )
 
 type Bet struct {
@@ -15,13 +15,13 @@ type Bet struct {
 
 func NewBet(agencyId uint16, firstName string, lastName string, document uint32, birthdate string, number uint32) (*Bet, error) {
 	if len(firstName) > 255 {
-		return nil, fmt.Errorf("first name exceeds maximum length of 255 characters")
+		return nil, errors.New("first name exceeds maximum length of 255 characters")
 	}
 	if len(lastName) > 255 {
-		return nil, fmt.Errorf("last name exceeds maximum length of 255 characters")
+		return nil, errors.New("last name exceeds maximum length of 255 characters")
 	}
 	if len(birthdate) > 255 {
-		return nil, fmt.Errorf("birthdate exceeds maximum length of 255 characters")
+		return nil, errors.New("birthdate exceeds maximum length of 255 characters")
 	}
 	return &Bet{
 		agencyId:  agencyId,

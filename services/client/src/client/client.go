@@ -1,9 +1,9 @@
 package client
 
 import (
-	"io"
-
+	"errors"
 	"fmt"
+	"io"
 	"strconv"
 
 	"github.com/7574-sistemas-distribuidos/tp-nivelador/src/logger"
@@ -17,16 +17,16 @@ type ClientConfig struct {
 func NewClientConfig(agencyId string, batchSize string) (*ClientConfig, error) {
 	agencyIdUint, err := strconv.ParseUint(agencyId, 10, 16)
 	if err != nil {
-		return &ClientConfig{}, fmt.Errorf("AGENCY_ID environment variable must be a valid uint16: %v", err)
+		return &ClientConfig{}, errors.New("AGENCY_ID environment variable must be a valid uint16")
 	}
 
 	batchSizeUint, err := strconv.ParseUint(batchSize, 10, 16)
 	if err != nil {
-		return &ClientConfig{}, fmt.Errorf("BATCH_SIZE environment variable must be a valid uint16: %v", err)
+		return &ClientConfig{}, errors.New("BATCH_SIZE environment variable must be a valid uint16")
 	}
 
 	if batchSizeUint == 0 {
-		return &ClientConfig{}, fmt.Errorf("BATCH_SIZE environment variable must be greater than 0")
+		return &ClientConfig{}, errors.New("BATCH_SIZE environment variable must be greater than 0")
 	}
 
 	return &ClientConfig{
@@ -155,7 +155,7 @@ func (client *Client) sendBetsToNationalLottery() error {
 		bytes := bet.ToBytes()
 
 		if len(bytes) > maxSize {
-			return fmt.Errorf("unexpected error: bet size exceeds maximum message size. Bet: %v, MaxSize: %d", bet, maxSize)
+			return errors.New("unexpected error: bet size exceeds maximum message size")
 		}
 
 		if len(bytes)+len(betsPayload) > maxSize || betsInBatch+1 > int(client.config.BatchSize) {
@@ -189,7 +189,7 @@ func (client *Client) sendBets(betsPayload []byte) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("server rejected batch (NACK)")
+		return errors.New("server rejected batch (NACK)")
 	}
 
 	if !response.IsAck() {
