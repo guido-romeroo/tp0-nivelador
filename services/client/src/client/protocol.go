@@ -8,12 +8,11 @@ import (
 type MessageType byte
 
 const (
-	BET    MessageType = 0x01
+	BETS   MessageType = 0x01
 	WINNER MessageType = 0x02
 	ACK    MessageType = 0x03
 	NACK   MessageType = 0x04
-	BATCH  MessageType = 0x05
-	BYE    MessageType = 0x06
+	BYE    MessageType = 0x05
 )
 
 type Message struct {

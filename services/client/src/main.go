@@ -38,7 +38,7 @@ func loadClientConfig() (*client.ClientConfig, error) {
 
 	batchSize := os.Getenv("BATCH_SIZE")
 	if batchSize == "" {
-		return &client.ClientConfig{}, errors.New("BATCH_SIZE environment variable is required")
+		batchSize = "1"
 	}
 
 	return client.NewClientConfig(agencyId, batchSize)

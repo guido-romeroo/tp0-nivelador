@@ -94,6 +94,10 @@ func (client *Client) writeWinnersFromNationalLottery() error {
 			break
 		}
 
+		if !responseReceived.IsWinner() {
+			return fmt.Errorf("expected WINNER, got %v", responseReceived.Type)
+		}
+
 		winner, err := BetFromBytes(responseReceived.Payload)
 		if err != nil {
 			logger.Error("parsing-winner", logger.Fail)
@@ -119,14 +123,14 @@ func (client *Client) sendBye() error {
 
 func (client *Client) sendBetsToNationalLottery() error {
 	maxSize := client.connectionWithNationalLottery.maxMessageSize
-	batchPayload := make([]byte, 0, maxSize)
+	betsPayload := make([]byte, 0, maxSize)
 	betsInBatch := 0
 
 	sendAndCleanPayload := func() error {
-		if err := client.sendBatch(batchPayload); err != nil {
+		if err := client.sendBets(betsPayload); err != nil {
 			return err
 		}
-		batchPayload = batchPayload[:0]
+		betsPayload = betsPayload[:0]
 		betsInBatch = 0
 		return nil
 	}
@@ -134,7 +138,7 @@ func (client *Client) sendBetsToNationalLottery() error {
 	for {
 		bet, err := client.agencyRepository.NextBet(client.config.AgencyId)
 		if err == io.EOF {
-			err := client.sendBatch(batchPayload)
+			err := client.sendBets(betsPayload)
 			if err != nil {
 				return err
 			}
@@ -154,24 +158,24 @@ func (client *Client) sendBetsToNationalLottery() error {
 			return fmt.Errorf("unexpected error: bet size exceeds maximum message size. Bet: %v, MaxSize: %d", bet, maxSize)
 		}
 
-		if len(bytes)+len(batchPayload) > maxSize || betsInBatch+1 > int(client.config.BatchSize) {
+		if len(bytes)+len(betsPayload) > maxSize || betsInBatch+1 > int(client.config.BatchSize) {
 			if err := sendAndCleanPayload(); err != nil {
 				return err
 			}
 		}
-		batchPayload = append(batchPayload, bytes...)
+		betsPayload = append(betsPayload, bytes...)
 		betsInBatch++
 	}
 	return nil
 }
 
-func (client *Client) sendBatch(batchPayload []byte) error {
-	if len(batchPayload) == 0 {
+func (client *Client) sendBets(betsPayload []byte) error {
+	if len(betsPayload) == 0 {
 		return nil
 	}
-	batchMessage := newMessage(BATCH, batchPayload)
-	if err := client.connectionWithNationalLottery.Send(batchMessage); err != nil {
-		logger.Error("sending-batch", logger.Fail)
+	message := newMessage(BETS, betsPayload)
+	if err := client.connectionWithNationalLottery.Send(message); err != nil {
+		logger.Error("sending-message", logger.Fail)
 		return err
 	}
 	response, err := client.connectionWithNationalLottery.Recv()
